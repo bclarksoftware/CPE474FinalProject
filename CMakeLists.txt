@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 2.8)
 # Name of the project
 project(FinalProject)
 
+#set(DEP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dependencies")
+
 # Use glob to get the list of all source files.
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 
@@ -63,6 +65,8 @@ else()
   if(APPLE)
     # Add required frameworks for GLFW.
     target_link_libraries(${CMAKE_PROJECT_NAME} "-framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo")
+#include_directories(${DEP_DIR}/FMOD/api/inc)
+#target_link_libraries(${CMAKE_PROJECT_NAME} ${DEP_DIR}/FMOD/api/lib/libfmodex.dylib)
   else()
     #Link the Linux OpenGL library
     target_link_libraries(${CMAKE_PROJECT_NAME} "GL")

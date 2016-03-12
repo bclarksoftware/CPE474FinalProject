@@ -21,6 +21,8 @@
 #include "Shape.h"
 #include "Scene.h"
 
+#include "SoundPlayer.h"
+
 using namespace std;
 using namespace Eigen;
 
@@ -33,6 +35,8 @@ shared_ptr<Camera> camera;
 shared_ptr<Program> prog;
 shared_ptr<Program> progSimple;
 shared_ptr<Scene> scene;
+
+SoundPlayer soundPlayer;
 
 static void error_callback(int error, const char *description)
 {
@@ -120,6 +124,10 @@ static void init()
 	scene->load(RESOURCE_DIR);
 	scene->tare();
 	scene->init();
+    
+    // Initialize the audio player
+    soundPlayer.playBackgroundMusic();
+    
 	
 	// If there were any OpenGL errors, this will print something.
 	// You can intersperse this line in your code to find the exact location
@@ -276,6 +284,7 @@ int main(int argc, char **argv)
 	init();
 	// Start simulation thread.
 	thread stepperThread(stepperFunc);
+    
 	// Loop until the user closes the window.
 	while(!glfwWindowShouldClose(window)) {
 		// Render scene.
@@ -285,6 +294,7 @@ int main(int argc, char **argv)
 		// Poll for and process events.
 		glfwPollEvents();
 	}
+    
 	// Quit program.
 	stepperThread.detach();
 	glfwDestroyWindow(window);
