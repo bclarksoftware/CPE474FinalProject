@@ -32,11 +32,17 @@ void Scene::load(const string &RESOURCE_DIR)
 	double mass = 0.1;
 	double stiffness = 1e1;
 	Vector2d damping(1.0, 1.0);
-	Vector3d x00(-0.25, 0.5, 0.0);
-	Vector3d x01(0.25, 0.5, 0.0);
-	Vector3d x10(-0.25, 0.5, -0.5);
-	Vector3d x11(0.25, 0.5, -0.5);
+	Vector3d x00(-0.5, 0.5, 0.0);
+	Vector3d x01(0.0, 0.5, 0.0);
+	Vector3d x10(-0.5, 0.5, -0.5);
+	Vector3d x11(0.0, 0.5, -0.5);
 	cloth = make_shared<Cloth>(rows, cols, x00, x01, x10, x11, mass, stiffness, damping);
+    
+    Vector3d xx00(0.0, 0.5, 0.0);
+    Vector3d xx01(0.5, 0.5, 0.0);
+    Vector3d xx10(0.0, 0.5, -0.5);
+    Vector3d xx11(0.5, 0.5, -0.5);
+    cloth2 = make_shared<Cloth>(rows, cols, xx00, xx01, xx10, xx11, mass, stiffness, damping);
 	
 	sphereShape = make_shared<Shape>();
 	sphereShape->loadMesh(RESOURCE_DIR + "sphere2.obj");
@@ -51,6 +57,7 @@ void Scene::init()
 {
 	sphereShape->init();
 	cloth->init();
+    cloth2->init();
 }
 
 void Scene::tare()
@@ -59,6 +66,7 @@ void Scene::tare()
 		spheres[i]->tare();
 	}
 	cloth->tare();
+    cloth2->tare();
 }
 
 void Scene::reset()
@@ -68,6 +76,7 @@ void Scene::reset()
 		spheres[i]->reset();
 	}
 	cloth->reset();
+    cloth2->reset();
 }
 
 void Scene::step()
@@ -87,6 +96,7 @@ void Scene::step()
 	
 	// Simulate the cloth
 	cloth->step(h, grav, spheres);
+    cloth2->step(h, grav, spheres);
 }
 
 void Scene::draw(shared_ptr<MatrixStack> MV, const shared_ptr<Program> prog) const
@@ -96,4 +106,5 @@ void Scene::draw(shared_ptr<MatrixStack> MV, const shared_ptr<Program> prog) con
 		spheres[i]->draw(MV, prog);
 	}
 	cloth->draw(MV, prog);
+    cloth2->draw(MV, prog);
 }
