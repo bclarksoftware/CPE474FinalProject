@@ -3,8 +3,6 @@ cmake_minimum_required(VERSION 2.8)
 # Name of the project
 project(FinalProject)
 
-#set(DEP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dependencies")
-
 # Use glob to get the list of all source files.
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 
@@ -65,10 +63,37 @@ else()
   if(APPLE)
     # Add required frameworks for GLFW.
     target_link_libraries(${CMAKE_PROJECT_NAME} "-framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo")
-#include_directories(${DEP_DIR}/FMOD/api/inc)
-#target_link_libraries(${CMAKE_PROJECT_NAME} ${DEP_DIR}/FMOD/api/lib/libfmodex.dylib)
+    #include_directories(${DEP_DIR}/FMOD/api/inc)
+    #target_link_libraries(${CMAKE_PROJECT_NAME} ${DEP_DIR}/FMOD/api/lib/libfmodex.dylib)
   else()
     #Link the Linux OpenGL library
     target_link_libraries(${CMAKE_PROJECT_NAME} "GL")
   endif()
 endif()
+
+# Get the ASSIMP environment variable.
+set(ASSIMP_DIR "$ENV{ASSIMP_DIR}")
+if(NOT ASSIMP_DIR)
+    message(FATAL_ERROR "Please point the environment variable ASSIMP_DIR to the root directory of your Assimp installation.")
+endif()
+include_directories(${ASSIMP_DIR}/include/assimp)
+if(WIN32)
+    # With prebuilt binaries
+    #target_link_libraries(${CMAKE_PROJECT_NAME} ${GLEW_DIR}/lib/Release/Win32/glew32s.lib)
+else()
+    target_link_libraries(${CMAKE_PROJECT_NAME} ${ASSIMP_DIR}/lib/libassimp.dylib)
+endif()
+
+# Get the FMOD environment variable.
+set(FMOD_DIR "$ENV{FMOD_DIR}")
+if(NOT FMOD_DIR)
+    message(FATAL_ERROR "Please point the environment variable FMOD_DIR to the root directory of your FMOD installation.")
+endif()
+include_directories(${FMOD_DIR}/api/inc)
+if(WIN32)
+    # With prebuilt binaries
+    #target_link_libraries(${CMAKE_PROJECT_NAME} ${GLEW_DIR}/lib/Release/Win32/glew32s.lib)
+else()
+target_link_libraries(${CMAKE_PROJECT_NAME} ${FMOD_DIR}/api/lib/libfmodex.dylib)
+endif()
+

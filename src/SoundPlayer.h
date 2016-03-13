@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include "../dependencies/FMOD/api/inc/fmod.hpp"
+#include <fmod.hpp>
 
 #define TERR_MUSIC_1 0
 #define TERR_MUSIC_2 1

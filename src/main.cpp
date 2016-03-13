@@ -22,6 +22,7 @@
 #include "Scene.h"
 
 #include "SoundPlayer.h"
+#include <Importer.hpp>
 
 using namespace std;
 using namespace Eigen;
