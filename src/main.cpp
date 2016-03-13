@@ -23,9 +23,15 @@
 
 #include "SoundPlayer.h"
 #include <Importer.hpp>
+#include "AnimatedCharacter.hpp"
+
+#include "ogldev_skinned_mesh.h"
+#include "ogldev_util.h"
+#include "skinning_technique.h"
+#include "texture.h"
 
 using namespace std;
-using namespace Eigen;
+//using namespace Eigen;
 
 bool keyToggles[256] = {false}; // only for English keyboards!
 
@@ -35,9 +41,17 @@ string RESOURCE_DIR = ""; // Where the resources are loaded from
 shared_ptr<Camera> camera;
 shared_ptr<Program> prog;
 shared_ptr<Program> progSimple;
+shared_ptr<Program> boneProg;
 shared_ptr<Scene> scene;
 
 SoundPlayer soundPlayer;
+
+float h = 0.0;
+shared_ptr<AnimatedCharacter> chicken;
+
+//SkinnedMesh chickenMesh;
+//shared_ptr<SkinningTechnique> m_pEffect;
+//DirectionalLight m_directionalLight;
 
 static void error_callback(int error, const char *description)
 {
@@ -118,7 +132,26 @@ static void init()
 	prog->addAttribute("vertPos");
 	prog->addAttribute("vertNor");
 	prog->addAttribute("vertTex");
-	
+    
+    boneProg = make_shared<Program>();
+    boneProg->setVerbose(true);
+    boneProg->setShaderNames(RESOURCE_DIR + "bone_vert.glsl", RESOURCE_DIR + "bone_frag.glsl");
+    boneProg->init();
+    boneProg->addUniform("P");
+    boneProg->addUniform("MV");
+    boneProg->addUniform("bones");
+    boneProg->addAttribute("vertPos");
+    boneProg->addAttribute("vertNor");
+    boneProg->addAttribute("vertTex");
+    boneProg->addAttribute("boneIds");
+    boneProg->addAttribute("boneIds2");
+    boneProg->addAttribute("boneWeights");
+    boneProg->addAttribute("boneWeights2");
+    
+//    boneProg->addUniform("uTexUnit");
+    
+    GLSL::checkError(GET_FILE_LINE);
+    
 	camera = make_shared<Camera>();
 
 	scene = make_shared<Scene>();
@@ -129,6 +162,36 @@ static void init()
     // Initialize the audio player
     soundPlayer.playBackgroundMusic();
     
+//    m_directionalLight.Color = Vector3f(1.0f, 1.0f, 1.0f);
+//    m_directionalLight.AmbientIntensity = 0.55f;
+//    m_directionalLight.DiffuseIntensity = 0.9f;
+//    m_directionalLight.Direction = Vector3f(1.0f, 0.0, 0.0);
+//    
+//    m_pEffect = make_shared<SkinningTechnique>();
+//    
+//    if (!m_pEffect->Init())
+//    {
+//        printf("Error initializing the lighting technique\n");
+//    }
+//    
+//    m_pEffect->Enable();
+//    
+//    m_pEffect->SetColorTextureUnit(0);
+//    m_pEffect->SetDirectionalLight(m_directionalLight);
+//    m_pEffect->SetMatSpecularIntensity(0.0f);
+//    m_pEffect->SetMatSpecularPower(0);
+    
+    // Initialize the chicken
+    chicken = make_shared<AnimatedCharacter>((RESOURCE_DIR + "Chicken/Chicken_Brown_FBX/chicken_brwn.DAE"), 1, 1.0f, 0);
+    
+//    if (!chickenMesh.LoadMesh((RESOURCE_DIR + "Chicken/Chicken_Brown_FBX/chicken_brwn.DAE")))
+//    {
+//        printf("Mesh load failed\n");
+//    }
+//    else
+//    {
+//        cout << "Successfully loaded the chicken mesh" << endl;
+//    }
 	
 	// If there were any OpenGL errors, this will print something.
 	// You can intersperse this line in your code to find the exact location
@@ -218,6 +281,28 @@ void render()
 	scene->draw(MV, prog);
 	MV->popMatrix();
 	prog->unbind();
+    
+    boneProg->bind();
+    glUniformMatrix4fv(boneProg->getUniform("P"), 1, GL_FALSE, P->topMatrix().data());
+    MV->pushMatrix();
+    // Draw something here
+    if(!chicken->isAnimating()) {
+        chicken->startAnimation("walk");
+    }
+    
+//    float newTime = glfwGetTime();
+    chicken->drawChar(MV, boneProg, 1.0/60.0);
+    
+//    vector<Matrix4f> Transforms;
+//    
+//    chickenMesh.BoneTransform((float)glfwGetTime(), Transforms);
+//    
+//    chickenMesh.Render();
+    
+    MV->popMatrix();
+    boneProg->unbind();
+    
+//    h += newTime;
 	
 	//////////////////////////////////////////////////////
 	// Cleanup

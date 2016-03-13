@@ -48,8 +48,8 @@ public:
     GLuint texBuf;
     
 private:
-    const aiScene* scene;
-    Assimp::Importer* importer;
+    aiScene* scene;
+    const aiAnimation* sceneAnim;
     
     aiNode* root;
     aiMesh** meshes;
@@ -68,8 +68,6 @@ private:
     float* boneWeight; // 4 per vertex
     unsigned int* boneId2; // 4 per vertex
     float* boneWeight2; // 4 per vertex
-    //vector<Matrix4f>& boneModels;
-//    vector<Eigen::Matrix4f>& boneModels;
     float* floatModel;
     
     float lastTime;
@@ -87,11 +85,9 @@ private:
     GLuint boneWeightBuf;
     GLuint boneIdBuf2;
     GLuint boneWeightBuf2;
-    GLuint boneTransforms;
     
-    
-    void recursivePrint(const aiNode* toPrint, int level, aiMesh** meshes);
-    void recursiveUpdate(const aiNode* toUpdate, float time);
+    void recursivePrint(aiNode* toPrint, int level, aiMesh** meshes);
+    void recursiveUpdate(aiNode* toUpdate, float time);
     
     // methods to interpolate transform between animation frames
     aiQuaternion intRot(float time, const aiNodeAnim* nodeAnim);

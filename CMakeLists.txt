@@ -9,7 +9,7 @@ file(GLOB_RECURSE SOURCES "src/*.cpp")
 # We don't really need to include header and resource files to build, but it's
 # nice to have them show up in IDEs.
 file(GLOB_RECURSE HEADERS "src/*.h" "src/*.hpp")
-file(GLOB_RECURSE GLSL "resources/*.glsl")
+file(GLOB_RECURSE GLSL "resources/*.glsl" "resources/*.vs" "resources/*.fs")
 
 # Set the executable.
 add_executable(${CMAKE_PROJECT_NAME} ${SOURCES} ${HEADERS} ${GLSL})
@@ -97,3 +97,16 @@ else()
 target_link_libraries(${CMAKE_PROJECT_NAME} ${FMOD_DIR}/api/lib/libfmodex.dylib)
 endif()
 
+# Get the Magick environment variable.
+set(MAGICK_DIR "$ENV{MAGICK_DIR}")
+if(NOT MAGICK_DIR)
+	message(FATAL_ERROR "Please point the environment variable MAGICK_DIR to the root directory of your Magick installation.")
+endif()
+include_directories(${MAGICK_DIR}/include)
+include_directories(${MAGICK_DIR}/include/ImageMagick-6)
+if(WIN32)
+	# With prebuilt binaries
+	#target_link_libraries(${CMAKE_PROJECT_NAME} ${GLEW_DIR}/lib/Release/Win32/glew32s.lib)
+else()
+	target_link_libraries(${CMAKE_PROJECT_NAME} ${MAGICK_DIR}/lib/libMagick++-6.Q16.dylib)
+endif()

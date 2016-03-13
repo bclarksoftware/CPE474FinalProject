@@ -10,41 +10,21 @@
 #include "MatrixStack.h"
 #include "Program.h"
 
-enum daeTypes {
-    samurai
-};
+float startAnim = 1.0;
+float endAnim = 31;
 
-enum animations {
-    walk,
-    punch,
-    idle,
-    die,
-    animCount
-};
-
-int startAnim[][animCount] = {{1, 31, 71, 101}, {1, 31, 71, 101},
-    {1, 85, 45, 125}, {1, 85, 45, 125},
-    {1, 85, 45, 125}, {1, 85, 45, 125},
-    {250, 85, 45, 125}, {75, 1, 1, 125},
-    {305, 140, 65, 140}};
-int endAnim[][animCount] = {{30, 70, 100, 135}, {30, 70, 100, 135},
-    {40, 120, 80, 190}, {40, 120, 80, 190},
-    {40, 120, 80, 190}, {40, 120, 80, 190},
-    {310, 120, 80, 190}, {280, 70, 70, 190},
-    {430, 300, 130, 300}};
-
-int framesPerSec = 24;
+float framesPerSec = 24.0;
 
 AnimatedCharacter::AnimatedCharacter(const string source, int inTexNum, float privScale, int daeToBe)
 {
     int i, j;
     cout << "\n\ntrying to load " << source << "\n";
-    importer = new Assimp::Importer();
-    scene = importer->ReadFile(source, aiProcess_GenNormals);
+    Assimp::Importer importer;
+    scene = (aiScene*)importer.ReadFile(source.c_str(), aiProcess_GenNormals);
     
     if(!scene) {
         cout << "couldn't read dae\n";
-        cout << "reason: " << importer->GetErrorString() << "\n";
+        cout << "reason: " << importer.GetErrorString() << "\n";
         root = NULL;
         return;
     }
@@ -58,8 +38,6 @@ AnimatedCharacter::AnimatedCharacter(const string source, int inTexNum, float pr
     animChoice = -1;
     randomStart = false;
     
-//    hiddenScale = glm::vec3(privScale, privScale, privScale);
-//    scale = glm::vec3(1.0f, 1.0f, 1.0f);
     hiddenScale << privScale, privScale, privScale;
     scale << 1.0f, 1.0f, 1.0f;
     
@@ -69,25 +47,29 @@ AnimatedCharacter::AnimatedCharacter(const string source, int inTexNum, float pr
     root = scene->mRootNode;
     meshes = scene->mMeshes;
     
-    /*cout << "scene " << scene << "\n";
-     cout << "meshes " << meshes << "\n";
-     cout << "num meshes " << scene->mNumMeshes << "\n";
-     cout << "facees in mesh 1 " << meshes[meshInd]->mNumFaces << "\n";
-     cout << "number of bones " << meshes[meshInd]->mNumBones << "\n";
-     cout << "number of animations " << scene->mNumAnimations << "\n";
-     cout << "duration of 1 " << scene->mAnimations[0]->mDuration << "\n";
-     cout << "tps " << scene->mAnimations[0]->mTicksPerSecond << "\n";
-     cout << "number of frames in 1 " << scene->mAnimations[0]->mChannels[0]->mNumRotationKeys << "\n";
-     */
+    sceneAnim = scene->mAnimations[0];
     
-    //cout << "has tex? " << meshes[meshInd]->HasTextureCoords(0) << "\n";
-    //cout << "num comps: " << meshes[meshInd]->mNumUVComponents[0] << "\n";
-    position[0] = 26.56f; // magic to put in view
-    position[1] = 0.0f;
-    position[2] = -30.77f;
+//    aiNode* find = scene->mRootNode->FindNode(("Chicken4_002"));
+//    cout << find->mName.C_Str() << endl;
+//    cout << find->mNumMeshes << endl;
+
+//    cout << "scene " << scene << endl;
+//    cout << "meshes " << meshes << endl;
+//    cout << "num meshes " << scene->mNumMeshes << endl;
+//    cout << "Has Textures: " << scene->HasTextures() << endl;
+//    cout << "Has Animations: " << scene->HasAnimations() << endl;
+//    cout << "facees in mesh 1 " << meshes[meshInd]->mNumFaces << "\n";
+//    cout << "number of bones " << meshes[meshInd]->mNumBones << "\n";
+//    cout << "number of animations " << scene->mNumAnimations << "\n";
+//    cout << "duration of 1 " << scene->mAnimations[0]->mDuration << "\n";
+//    cout << "tps " << scene->mAnimations[0]->mTicksPerSecond << "\n";
+//    cout << "number of frames in 1 " << scene->mAnimations[0]->mChannels[0]->mNumRotationKeys << "\n";
+//
+//    //cout << "has tex? " << meshes[meshInd]->HasTextureCoords(0) << "\n";
+//    //cout << "num comps: " << meshes[meshInd]->mNumUVComponents[0] << "\n";
     
     numInd = meshes[meshInd]->mNumVertices;
-    // recursivePrint(scene->mRootNode, 0, meshes);
+    recursivePrint(scene->mRootNode, 0, meshes);
     
     // positions
     positions = (float*) malloc(numInd * 3 * sizeof(float));
@@ -193,7 +175,7 @@ AnimatedCharacter::~AnimatedCharacter()
 {
 }
 
-void AnimatedCharacter::recursivePrint(const aiNode* node, int level, aiMesh** meshes)
+void AnimatedCharacter::recursivePrint(aiNode* node, int level, aiMesh** meshes)
 {
     for (int i = 0; i < level; i++) {
         printf("  -");
@@ -212,23 +194,27 @@ void AnimatedCharacter::recursivePrint(const aiNode* node, int level, aiMesh** m
     }
 }
 
-void AnimatedCharacter::updateBones(float time) {
-    recursiveUpdate(scene->mRootNode, time);
+void AnimatedCharacter::updateBones(float time)
+{
+    recursiveUpdate(root, time);
 }
 
-void AnimatedCharacter::recursiveUpdate(const aiNode* toUpdate, float time) {
+void AnimatedCharacter::recursiveUpdate(aiNode* toUpdate, float time) {
     aiMatrix4x4t<float> parent, us; // default to identity
-    int i, j;
-    int updateId = findBone(toUpdate);
-    const aiAnimation* anim = scene->mAnimations[0];
+
+    int updateId = toUpdate == NULL ? -1: findBone(toUpdate);
+    const aiAnimation* anim = sceneAnim; //scene->mAnimations[0];
     const aiNodeAnim* nodeAnim = findNodeAnim(anim, toUpdate);
     float timeOffset = 0;
     
-    if(isAnimating()) {
-        timeOffset = ((float) startAnim[daeType][animChoice]) / ((float) framesPerSec);
-    } else if (lastAnim != -1) {
+    if(isAnimating())
+    {
+        timeOffset = startAnim / framesPerSec;
+    }
+    else if (lastAnim != -1)
+    {
         // based on last animations end frame
-        timeOffset = ((float) endAnim[daeType][lastAnim]) / ((float) framesPerSec);
+        timeOffset = endAnim / framesPerSec;
     }
     
     us = toUpdate->mTransformation;
@@ -275,25 +261,33 @@ void AnimatedCharacter::recursiveUpdate(const aiNode* toUpdate, float time) {
         us = us * meshes[meshInd]->mBones[updateId]->mOffsetMatrix;
         us = us.Transpose();
         
-        for(i = 0; i < 4; i++) {
-            for(j = 0; j < 4; j++) {
+        for(int i = 0; i < 4; i++) {
+            for(int j = 0; j < 4; j++) {
                 floatModel[(updateId * 16) + (i * 4) + j] = us[i][j];
             }
         }
     }
     
-    for(i = 0; i < toUpdate->mNumChildren; i++) {
+    for(int i = 0; i < toUpdate->mNumChildren; i++)
+    {
+        cout << toUpdate->mNumChildren << endl;
         recursiveUpdate(toUpdate->mChildren[i], time);
     }
 }
 
-int AnimatedCharacter::findBone(const aiNode* toFind) {
-    int i;
-    for(i = 0; i < meshes[meshInd]->mNumBones; i++) {
-        if(toFind->mName == meshes[meshInd]->mBones[i]->mName) {
-            return i;
+int AnimatedCharacter::findBone(const aiNode* toFind)
+{
+    if (toFind != NULL && meshes != NULL && meshes[meshInd] != NULL)
+    {
+        for(int i = 0; i < meshes[meshInd]->mNumBones; i++)
+        {
+            if(toFind != NULL && toFind->mName == meshes[meshInd]->mBones[i]->mName)
+            {
+                return i;
+            }
         }
     }
+    
     return -1;
 }
 
@@ -352,59 +346,57 @@ aiVector3D AnimatedCharacter::intScale(float time, const aiNodeAnim* nodeAnim) {
 aiVector3D AnimatedCharacter::intTrans(float time, const aiNodeAnim* nodeAnim)
 {
     int key;
+    float factor, dt;
+    aiVector3D startPos, endPos;
     
-    for(int i = 0; i < nodeAnim->mNumPositionKeys - 1; i++)
+    if (nodeAnim->mNumPositionKeys != NULL && nodeAnim > 0)
     {
-        if(time < (float) nodeAnim->mPositionKeys[i + 1].mTime)
+        for(int i = 0; i < nodeAnim->mNumPositionKeys - 1; i++)
         {
-            key = i;
-            break;
+            if(time < (float) nodeAnim->mPositionKeys[i + 1].mTime)
+            {
+                key = i;
+                break;
+            }
         }
+        
+        startPos = nodeAnim->mPositionKeys[key].mValue;
+        endPos = nodeAnim->mPositionKeys[key + 1].mValue;
+        dt = nodeAnim->mPositionKeys[key + 1].mTime - nodeAnim->mPositionKeys[key].mTime;
+        factor = (time - nodeAnim->mPositionKeys[key].mTime) / dt;
     }
-    
-    const aiVector3D startPos = nodeAnim->mPositionKeys[key].mValue;
-    const aiVector3D endPos = nodeAnim->mPositionKeys[key + 1].mValue;
-    float dt = nodeAnim->mPositionKeys[key + 1].mTime -
-    nodeAnim->mPositionKeys[key].mTime;
-    float factor = (time - nodeAnim->mPositionKeys[key].mTime) / dt;
+    else
+    {
+        startPos = aiVector3D(0.0, 0.0, 0.0);
+        endPos = aiVector3D(0.0, 0.0, 0.0);
+        factor = 0.0;
+    }
     
     aiVector3D ret;
     ret += startPos * (1.0f - factor);
     ret += endPos * (factor);
-    // aiVector3D::Interpolate(ret, startPos, endPos, factor);
+//    aiVector3D::Interpolate(ret, startPos, endPos, factor);
     
     return ret;
 }
 
-void AnimatedCharacter::startAnimation(string animation) {
-    animStart = lastTime;
-    if (lastAnim == die) {
-        return;
-    }
+void AnimatedCharacter::startAnimation(string animation)
+{
+    float numFrames = endAnim - startAnim;
     
-    animChoice = -1;
-    if(strcmp(animation.c_str(), "run") == 0) {
-        animChoice = walk;
-    } else if(strcmp(animation.c_str(), "punch") == 0) {
-        animChoice = punch;
-    } else if(strcmp(animation.c_str(), "idle") == 0) {
-        animChoice = idle;
-    } else if (strcmp(animation.c_str(), "die") == 0) {
-        animChoice = die;
-    }
+    animChoice = 0;
     
-    if(animChoice != -1) {
-        int numFrames = endAnim[daeType][animChoice] - startAnim[daeType][animChoice];
-        
-        int skippedFrames = 0;
-        if(lastAnim != animChoice && (animChoice == walk || animChoice == idle) && daeType != 7 && daeType != 8) {
-            skippedFrames = rand() % (numFrames);
-            randomStart = false;
-        }
-        // frames / fps
-        animStart = animStart - (((float) skippedFrames) / ((float) framesPerSec));
-        endTime = (((float) numFrames) / ((float) framesPerSec)) + animStart;
+    int skippedFrames = 0;
+    if(lastAnim != animChoice)
+    {
+        skippedFrames = rand() % ((int)numFrames);
+        randomStart = false;
     }
+       
+    // frames / fps
+    animStart = animStart - (((float) skippedFrames) / framesPerSec);
+    endTime = (numFrames / framesPerSec) + animStart;
+       
     lastAnim = animChoice;
 }
 
@@ -443,27 +435,20 @@ void AnimatedCharacter::drawChar(shared_ptr<MatrixStack> MV, const shared_ptr<Pr
     glBindBuffer(GL_ARRAY_BUFFER, norBuf);
     glVertexAttribPointer(h_vertNor, 3, GL_FLOAT, GL_FALSE, 0, 0);
     
-    // texture
-    glUniform1i(p->getUniform("terrainToggle"), 1);
-    
     glEnable(GL_TEXTURE_2D);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texInd);
     
-    int h_aTexCoord = p->getAttribute("aTexCoord");
+    int h_aTexCoord = p->getAttribute("vertTex");
     GLSL::enableVertexAttribArray(h_aTexCoord);
     glBindBuffer(GL_ARRAY_BUFFER, texBuf);
     glVertexAttribPointer(h_aTexCoord, 2, GL_FLOAT, GL_FALSE, 0, 0);
     
     // model transform
-    MV->translate(position);
     MV->rotate(rotate, Eigen::Vector3f(0.0, 1.0, 0.0));
     MV->scale(hiddenScale);
     MV->scale(scale);
-    glUniformMatrix4fv(p->getUniform("uModelMatrix"), 1, GL_FALSE, MV->topMatrix().data());
-    
-    // enable bones
-    glUniform1i(p->getUniform("boneToggle"), 1);
+    glUniformMatrix4fv(p->getUniform("MV"), 1, GL_FALSE, MV->topMatrix().data());
     
     // bone id
     int h_boneIds = p->getAttribute("boneIds");
@@ -497,11 +482,12 @@ void AnimatedCharacter::drawChar(shared_ptr<MatrixStack> MV, const shared_ptr<Pr
     
     GLSL::disableVertexAttribArray(h_vertPos); // position
     GLSL::disableVertexAttribArray(h_vertNor); // normals
-    //GLSL::disableVertexAttribArray(h_aTexCoord); // texture
+    GLSL::disableVertexAttribArray(h_aTexCoord); // texture
     GLSL::disableVertexAttribArray(h_boneIds); // bone ids
+    GLSL::disableVertexAttribArray(h_boneIds2);
     GLSL::disableVertexAttribArray(h_boneWeights); // bone weights
+    GLSL::disableVertexAttribArray(h_boneWeights2);
     
-    glUniform1i(p->getUniform("boneToggle"), 0);
     glDisable(GL_TEXTURE_2D);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
