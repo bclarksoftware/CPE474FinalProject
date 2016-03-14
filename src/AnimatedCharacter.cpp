@@ -10,19 +10,19 @@
 #include "MatrixStack.h"
 #include "Program.h"
 
-float startAnim = 1.0;
-float endAnim = 31;
+int startAnim = 0;
+int endAnim = 31;
 
-float framesPerSec = 24.0;
+int framesPerSec = 24;
 
-AnimatedCharacter::AnimatedCharacter(const string source, int inTexNum, float privScale, int daeToBe)
-{
+AnimatedCharacter::AnimatedCharacter(const string source, int inTexNum, float privScale, int daeToBe) {
     int i, j;
-    cout << "\n\ntrying to load " << source << "\n";
+
     Assimp::Importer importer;
     scene = (aiScene*)importer.ReadFile(source.c_str(), aiProcess_GenNormals);
     
-    if(!scene) {
+    if(!scene)
+    {
         cout << "couldn't read dae\n";
         cout << "reason: " << importer.GetErrorString() << "\n";
         root = NULL;
@@ -33,43 +33,29 @@ AnimatedCharacter::AnimatedCharacter(const string source, int inTexNum, float pr
     
     // TODO remove this magic
     meshInd = 0;
-    daeType = daeToBe;
     lastAnim = -1;
     animChoice = -1;
-    randomStart = false;
-    
-    hiddenScale << privScale, privScale, privScale;
-    scale << 1.0f, 1.0f, 1.0f;
-    
-    rotate = 45.0f;
     
     //cout << "root " << scene->mRootNode << "\n";
     root = scene->mRootNode;
     meshes = scene->mMeshes;
     
-    sceneAnim = scene->mAnimations[0];
+    /*cout << "scene " << scene << "\n";
+     cout << "meshes " << meshes << "\n";
+     cout << "num meshes " << scene->mNumMeshes << "\n";
+     cout << "facees in mesh 1 " << meshes[meshInd]->mNumFaces << "\n";
+     cout << "number of bones " << meshes[meshInd]->mNumBones << "\n";
+     cout << "number of animations " << scene->mNumAnimations << "\n";
+     cout << "duration of 1 " << scene->mAnimations[0]->mDuration << "\n";
+     cout << "tps " << scene->mAnimations[0]->mTicksPerSecond << "\n";
+     cout << "number of frames in 1 " << scene->mAnimations[0]->mChannels[0]->mNumRotationKeys << "\n";
+     */
     
-//    aiNode* find = scene->mRootNode->FindNode(("Chicken4_002"));
-//    cout << find->mName.C_Str() << endl;
-//    cout << find->mNumMeshes << endl;
-
-//    cout << "scene " << scene << endl;
-//    cout << "meshes " << meshes << endl;
-//    cout << "num meshes " << scene->mNumMeshes << endl;
-//    cout << "Has Textures: " << scene->HasTextures() << endl;
-//    cout << "Has Animations: " << scene->HasAnimations() << endl;
-//    cout << "facees in mesh 1 " << meshes[meshInd]->mNumFaces << "\n";
-//    cout << "number of bones " << meshes[meshInd]->mNumBones << "\n";
-//    cout << "number of animations " << scene->mNumAnimations << "\n";
-//    cout << "duration of 1 " << scene->mAnimations[0]->mDuration << "\n";
-//    cout << "tps " << scene->mAnimations[0]->mTicksPerSecond << "\n";
-//    cout << "number of frames in 1 " << scene->mAnimations[0]->mChannels[0]->mNumRotationKeys << "\n";
-//
-//    //cout << "has tex? " << meshes[meshInd]->HasTextureCoords(0) << "\n";
-//    //cout << "num comps: " << meshes[meshInd]->mNumUVComponents[0] << "\n";
+    //cout << "has tex? " << meshes[meshInd]->HasTextureCoords(0) << "\n";
+    //cout << "num comps: " << meshes[meshInd]->mNumUVComponents[0] << "\n";
     
     numInd = meshes[meshInd]->mNumVertices;
-    recursivePrint(scene->mRootNode, 0, meshes);
+    // recursivePrint(scene->mRootNode, 0, meshes);
     
     // positions
     positions = (float*) malloc(numInd * 3 * sizeof(float));
@@ -173,11 +159,13 @@ AnimatedCharacter::AnimatedCharacter(const string source, int inTexNum, float pr
 
 AnimatedCharacter::~AnimatedCharacter()
 {
+    
 }
 
-void AnimatedCharacter::recursivePrint(aiNode* node, int level, aiMesh** meshes)
-{
-    for (int i = 0; i < level; i++) {
+void AnimatedCharacter::recursivePrint(const aiNode* node, int level, aiMesh** meshes) {
+    int i, j;
+    
+    for (i = 0; i < level; i++) {
         printf("  -");
     }
     
@@ -189,101 +177,102 @@ void AnimatedCharacter::recursivePrint(aiNode* node, int level, aiMesh** meshes)
     //cout << ", positions? " << meshes[node->mMeshes[0]]->HasPositions();
     cout << "\n";
     
-    for (int i = 0; i < node->mNumChildren; i++) {
+    for (i = 0; i < node->mNumChildren; i++) {
         recursivePrint(node->mChildren[i], level + 1, meshes);
     }
 }
 
-void AnimatedCharacter::updateBones(float time)
-{
-    recursiveUpdate(root, time);
+void AnimatedCharacter::updateBones(float time) {
+    recursiveUpdate(scene->mRootNode, time);
 }
 
-void AnimatedCharacter::recursiveUpdate(aiNode* toUpdate, float time) {
+void AnimatedCharacter::recursiveUpdate(const aiNode* toUpdate, float time) {
     aiMatrix4x4t<float> parent, us; // default to identity
-
-    int updateId = toUpdate == NULL ? -1: findBone(toUpdate);
-    const aiAnimation* anim = sceneAnim; //scene->mAnimations[0];
-    const aiNodeAnim* nodeAnim = findNodeAnim(anim, toUpdate);
-    float timeOffset = 0;
+    int i, j;
     
-    if(isAnimating())
+    if (toUpdate != nullptr && scene != nullptr && scene->mNumAnimations > 0)
     {
-        timeOffset = startAnim / framesPerSec;
-    }
-    else if (lastAnim != -1)
-    {
-        // based on last animations end frame
-        timeOffset = endAnim / framesPerSec;
-    }
-    
-    us = toUpdate->mTransformation;
-    if(nodeAnim != NULL) {
-        // interpolate from where we are in the animation
-        aiMatrix4x4t<float> sMat, pMat, rMat;
-        aiVector3D scale = intScale(time - animStart + timeOffset, nodeAnim);
-        aiVector3D pos = intTrans(time - animStart + timeOffset, nodeAnim);
-        aiQuaternion rot = intRot(time - animStart + timeOffset, nodeAnim);
+        int updateId = findBone(toUpdate);
         
-        sMat = aiMatrix4x4t<float>::Scaling(scale, sMat);
-        pMat = aiMatrix4x4t<float>::Translation(pos, pMat);
-        rMat = aiMatrix4x4t<float>(rot.GetMatrix());
+        const aiAnimation* anim = scene->mAnimations[0];
+        const aiNodeAnim* nodeAnim = findNodeAnim(anim, toUpdate);
+        float timeOffset = 0;
         
-        us = pMat * rMat * sMat;
-    }
-    
-    // TODO should store this data, wasted lookups
-    const aiNode* temp = toUpdate->mParent;
-    while(temp != NULL) {
-        const aiNodeAnim* pAnim = findNodeAnim(anim, temp);
-        if(pAnim != NULL) {
-            // use int parent
-            aiMatrix4x4t<float> sMatP, pMatP, rMatP;
-            aiVector3D scaleP = intScale(time - animStart + timeOffset, pAnim);
-            aiVector3D posP = intTrans(time - animStart + timeOffset, pAnim);
-            aiQuaternion rotP = intRot(time - animStart + timeOffset, pAnim);
-            
-            sMatP = aiMatrix4x4t<float>::Scaling(scaleP, sMatP);
-            pMatP = aiMatrix4x4t<float>::Translation(posP, pMatP);
-            rMatP = aiMatrix4x4t<float>(rotP.GetMatrix());
-            
-            parent = pMatP * rMatP * sMatP * parent;
-        } else {
-            parent = temp->mTransformation * parent;
+        if(isAnimating()) {
+            timeOffset = ((float) startAnim) / ((float) framesPerSec);
+        } else if (lastAnim != -1) {
+            // based on last animations end frame
+            timeOffset = ((float) endAnim) / ((float) framesPerSec);
         }
-        temp = temp->mParent;
-    }
-    
-    us = parent * us;
-    
-    
-    if(updateId != -1) {
-        us = us * meshes[meshInd]->mBones[updateId]->mOffsetMatrix;
-        us = us.Transpose();
         
-        for(int i = 0; i < 4; i++) {
-            for(int j = 0; j < 4; j++) {
-                floatModel[(updateId * 16) + (i * 4) + j] = us[i][j];
+        us = toUpdate->mTransformation;
+        if(nodeAnim != NULL) {
+            // interpolate from where we are in the animation
+            aiMatrix4x4t<float> sMat, pMat, rMat;
+            aiVector3D scale = intScale(time - animStart + timeOffset, nodeAnim);
+            aiVector3D pos = intTrans(time - animStart + timeOffset, nodeAnim);
+            aiQuaternion rot = intRot(time - animStart + timeOffset, nodeAnim);
+            
+            sMat = aiMatrix4x4t<float>::Scaling(scale, sMat);
+            pMat = aiMatrix4x4t<float>::Translation(pos, pMat);
+            rMat = aiMatrix4x4t<float>(rot.GetMatrix());
+            
+            us = pMat * rMat * sMat;
+        }
+        
+        // TODO should store this data, wasted lookups
+        const aiNode* temp = toUpdate->mParent;
+        while(temp != NULL) {
+            const aiNodeAnim* pAnim = findNodeAnim(anim, temp);
+            if(pAnim != NULL) {
+                // use int parent
+                aiMatrix4x4t<float> sMatP, pMatP, rMatP;
+                aiVector3D scaleP = intScale(time - animStart + timeOffset, pAnim);
+                aiVector3D posP = intTrans(time - animStart + timeOffset, pAnim);
+                aiQuaternion rotP = intRot(time - animStart + timeOffset, pAnim);
+                
+                sMatP = aiMatrix4x4t<float>::Scaling(scaleP, sMatP);
+                pMatP = aiMatrix4x4t<float>::Translation(posP, pMatP);
+                rMatP = aiMatrix4x4t<float>(rotP.GetMatrix());
+                
+                parent = pMatP * rMatP * sMatP * parent;
+            } else {
+                parent = temp->mTransformation * parent;
+            }
+            temp = temp->mParent;
+        }
+        
+        us = parent * us;
+        
+        
+        if(updateId != -1) {
+            us = us * meshes[meshInd]->mBones[updateId]->mOffsetMatrix;
+            us = us.Transpose();
+            
+            for(i = 0; i < 4; i++) {
+                for(j = 0; j < 4; j++) {
+                    floatModel[(updateId * 16) + (i * 4) + j] = us[i][j];
+                }
             }
         }
-    }
-    
-    for(int i = 0; i < toUpdate->mNumChildren; i++)
-    {
-        cout << toUpdate->mNumChildren << endl;
-        recursiveUpdate(toUpdate->mChildren[i], time);
+        
+        for(i = 0; i < toUpdate->mNumChildren; i++) {
+            recursiveUpdate(toUpdate->mChildren[i], time);
+        }
     }
 }
 
-int AnimatedCharacter::findBone(const aiNode* toFind)
-{
-    if (toFind != NULL && meshes != NULL && meshes[meshInd] != NULL)
+int AnimatedCharacter::findBone(const aiNode* toFind) {
+    int i;
+    
+    if (toFind != nullptr)
     {
-        for(int i = 0; i < meshes[meshInd]->mNumBones; i++)
+        if (meshes != nullptr && meshes[meshInd] != nullptr)
         {
-            if(toFind != NULL && toFind->mName == meshes[meshInd]->mBones[i]->mName)
-            {
-                return i;
+            for(i = 0; i < meshes[meshInd]->mNumBones; i++) {
+                if(toFind->mName == meshes[meshInd]->mBones[i]->mName) {
+                    return i;
+                }
             }
         }
     }
@@ -293,43 +282,35 @@ int AnimatedCharacter::findBone(const aiNode* toFind)
 
 const aiNodeAnim* AnimatedCharacter::findNodeAnim(const aiAnimation* anim, const aiNode* toFind) {
     int i;
-    for(i = 0; i < anim->mNumChannels; i++) {
-        if(anim->mChannels[i]->mNodeName == toFind->mName) {
-            return anim->mChannels[i];
+    
+    if (anim != nullptr && toFind != nullptr)
+    {
+        for(i = 0; i < anim->mNumChannels; i++) {
+            if(anim->mChannels[i]->mNodeName == toFind->mName) {
+                return anim->mChannels[i];
+            }
         }
     }
+    
     return NULL;
 }
 
-aiQuaternion AnimatedCharacter::intRot(float time, const aiNodeAnim* nodeAnim)
-{
-    int key = 0;
-    float dt, factor;
-    aiQuaternion startRot, endRot;
+aiQuaternion AnimatedCharacter::intRot(float time, const aiNodeAnim* nodeAnim) {
+    int i = 0; // int between i and i+1
+    int key;
     
-    if (nodeAnim->mNumRotationKeys > 0)
-    {
-        for(int i = 0; i < nodeAnim->mNumRotationKeys - 1; i++)
-        {
-            if(time < (float) nodeAnim->mRotationKeys[i + 1].mTime)
-            {
-                key = i;
-                break;
-            }
+    for(i = 0; i < nodeAnim->mNumRotationKeys - 1; i++) {
+        if(time < (float) nodeAnim->mRotationKeys[i + 1].mTime) {
+            key = i;
+            break;
         }
-        
-        startRot = nodeAnim->mRotationKeys[key].mValue;
-        endRot = nodeAnim->mRotationKeys[key + 1].mValue;
-        dt = nodeAnim->mRotationKeys[key + 1].mTime - nodeAnim->mRotationKeys[key].mTime;
-        factor = (time - nodeAnim->mRotationKeys[key].mTime) / dt;
     }
-    else
-    {
-        startRot = aiQuaternion(0.0, 0.0, 0.0);
-        endRot = aiQuaternion(0.0, 0.0, 0.0);
-        dt = 0.0;
-        factor = 0.0;
-    }
+    
+    const aiQuaternion startRot = nodeAnim->mRotationKeys[key].mValue;
+    const aiQuaternion endRot = nodeAnim->mRotationKeys[key + 1].mValue;
+    float dt = nodeAnim->mRotationKeys[key + 1].mTime -
+    nodeAnim->mRotationKeys[key].mTime;
+    float factor = (time - nodeAnim->mRotationKeys[key].mTime) / dt;
     
     aiQuaternion ret;
     aiQuaternion::Interpolate(ret, startRot, endRot, factor);
@@ -343,60 +324,48 @@ aiVector3D AnimatedCharacter::intScale(float time, const aiNodeAnim* nodeAnim) {
     return aiVector3D(1.0, 1.0, 1.0);
 }
 
-aiVector3D AnimatedCharacter::intTrans(float time, const aiNodeAnim* nodeAnim)
-{
+aiVector3D AnimatedCharacter::intTrans(float time, const aiNodeAnim* nodeAnim) {
+    int i = 0; // int between i and i+1
     int key;
-    float factor, dt;
-    aiVector3D startPos, endPos;
     
-    if (nodeAnim->mNumPositionKeys != NULL && nodeAnim > 0)
-    {
-        for(int i = 0; i < nodeAnim->mNumPositionKeys - 1; i++)
-        {
-            if(time < (float) nodeAnim->mPositionKeys[i + 1].mTime)
-            {
-                key = i;
-                break;
-            }
+    for(i = 0; i < nodeAnim->mNumPositionKeys - 1; i++) {
+        if(time < (float) nodeAnim->mPositionKeys[i + 1].mTime) {
+            key = i;
+            break;
         }
-        
-        startPos = nodeAnim->mPositionKeys[key].mValue;
-        endPos = nodeAnim->mPositionKeys[key + 1].mValue;
-        dt = nodeAnim->mPositionKeys[key + 1].mTime - nodeAnim->mPositionKeys[key].mTime;
-        factor = (time - nodeAnim->mPositionKeys[key].mTime) / dt;
     }
-    else
-    {
-        startPos = aiVector3D(0.0, 0.0, 0.0);
-        endPos = aiVector3D(0.0, 0.0, 0.0);
-        factor = 0.0;
-    }
+    
+    const aiVector3D startPos = nodeAnim->mPositionKeys[key].mValue;
+    const aiVector3D endPos = nodeAnim->mPositionKeys[key + 1].mValue;
+    float dt = nodeAnim->mPositionKeys[key + 1].mTime -
+    nodeAnim->mPositionKeys[key].mTime;
+    float factor = (time - nodeAnim->mPositionKeys[key].mTime) / dt;
     
     aiVector3D ret;
     ret += startPos * (1.0f - factor);
     ret += endPos * (factor);
-//    aiVector3D::Interpolate(ret, startPos, endPos, factor);
+    // aiVector3D::Interpolate(ret, startPos, endPos, factor);
     
     return ret;
 }
 
-void AnimatedCharacter::startAnimation(string animation)
-{
-    float numFrames = endAnim - startAnim;
+
+void AnimatedCharacter::startAnimation(string animation) {
+    animStart = lastTime;
     
     animChoice = 0;
-    
+
+    int numFrames = endAnim - startAnim;
+        
     int skippedFrames = 0;
-    if(lastAnim != animChoice)
-    {
-        skippedFrames = rand() % ((int)numFrames);
-        randomStart = false;
+    if(lastAnim != animChoice) {
+        skippedFrames = rand() % (numFrames);
     }
-       
+    
     // frames / fps
-    animStart = animStart - (((float) skippedFrames) / framesPerSec);
-    endTime = (numFrames / framesPerSec) + animStart;
-       
+    animStart = animStart - (((float) skippedFrames) / ((float) framesPerSec));
+    endTime = (((float) numFrames) / ((float) framesPerSec)) + animStart;
+
     lastAnim = animChoice;
 }
 
@@ -446,7 +415,6 @@ void AnimatedCharacter::drawChar(shared_ptr<MatrixStack> MV, const shared_ptr<Pr
     
     // model transform
     MV->rotate(rotate, Eigen::Vector3f(0.0, 1.0, 0.0));
-    MV->scale(hiddenScale);
     MV->scale(scale);
     glUniformMatrix4fv(p->getUniform("MV"), 1, GL_FALSE, MV->topMatrix().data());
     
