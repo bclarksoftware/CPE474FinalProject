@@ -324,17 +324,26 @@ void Cloth::step(double h, const Vector3d &grav, const vector< shared_ptr<Partic
     {
         if (!particles[k]->fixed)
         {
-            Vector3d dX = particles[k]->x - spheres[0]->x;
-            
-            if (dX.norm() <= (particles[k]->r + spheres[0]->r))
+            double max = 0;
+            for (int s = 0; s < spheres.size(); s++)
             {
-                Vector3d xc = spheres[0]->x + ((spheres[0]->r + particles[k]->r) * dX.normalized());
-                Vector3d np = xc - particles[k]->x;
-                particles[k]->x = xc;
-                
-                particles[k]->v = particles[k]->v - (((double)(particles[k]->v.transpose() * np.normalized())) * np.normalized());
-                
-                particles[k]->v += spheres[0]->v.dot(np.normalized()) * np.normalized();
+                Vector3d dX = particles[k]->x - spheres[s]->x;
+            
+                if (dX.norm() <= (particles[k]->r + spheres[s]->r))
+                {
+                    Vector3d xc = spheres[s]->x + ((spheres[s]->r + particles[k]->r) * dX.normalized());
+                    Vector3d np = xc - particles[k]->x;
+                    
+                    if (max < xc.norm())
+                    {
+                        max = xc.norm();
+                        particles[k]->x = xc;
+                    }
+                    
+                    particles[k]->v = particles[k]->v - (((double)(particles[k]->v.transpose() * np.normalized())) * np.normalized());
+                    
+//                    particles[k]->v += spheres[s]->v.dot(np.normalized()) * np.normalized();
+                }
             }
         }
     }

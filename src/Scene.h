@@ -28,6 +28,8 @@ public:
 	void tare();
 	void reset();
 	void step();
+    
+    void addSpheres(std::vector<float> points);
 	
 	void draw(std::shared_ptr<MatrixStack> MV, const std::shared_ptr<Program> prog) const;
 	

@@ -1,6 +1,9 @@
+#include "Shape.h"
 #include <iostream>
 
-#include "Shape.h"
+#define EIGEN_DONT_ALIGN_STATICALLY
+#include <Eigen/Dense>
+
 #include "GLSL.h"
 #include "Program.h"
 
@@ -48,18 +51,14 @@ void Shape::init()
 	glBufferData(GL_ARRAY_BUFFER, posBuf.size()*sizeof(float), &posBuf[0], GL_STATIC_DRAW);
 	
 	// Send the normal array to the GPU
-	if(norBuf.empty()) {
-		norBufID = 0;
-	} else {
+	if(!norBuf.empty()) {
 		glGenBuffers(1, &norBufID);
 		glBindBuffer(GL_ARRAY_BUFFER, norBufID);
 		glBufferData(GL_ARRAY_BUFFER, norBuf.size()*sizeof(float), &norBuf[0], GL_STATIC_DRAW);
 	}
 	
 	// Send the texture array to the GPU
-	if(texBuf.empty()) {
-		texBufID = 0;
-	} else {
+	if(!texBuf.empty()) {
 		glGenBuffers(1, &texBufID);
 		glBindBuffer(GL_ARRAY_BUFFER, texBufID);
 		glBufferData(GL_ARRAY_BUFFER, texBuf.size()*sizeof(float), &texBuf[0], GL_STATIC_DRAW);
@@ -73,6 +72,38 @@ void Shape::init()
 	// Unbind the arrays
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	
+	GLSL::checkError(GET_FILE_LINE);
+}
+
+vector<float> Shape::getPosBuf()
+{
+    return posBuf;
+}
+
+void Shape::setPosBuf(vector<float> pos)
+{
+    posBuf = pos;
+    
+    // Send the position array to the GPU
+    glBindBuffer(GL_ARRAY_BUFFER, posBufID);
+    glBufferData(GL_ARRAY_BUFFER, pos.size()*sizeof(float), &pos[0], GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+vector<float> Shape::getNorBuf()
+{
+    return norBuf;
+}
+
+void Shape::setNorBuf(vector<float> nor)
+{
+    // Send the normal array to the GPU
+    if(!nor.empty()) {
+        glGenBuffers(1, &norBufID);
+        glBindBuffer(GL_ARRAY_BUFFER, norBufID);
+        glBufferData(GL_ARRAY_BUFFER, nor.size()*sizeof(float), &nor[0], GL_STATIC_DRAW);
+    }
 }
 
 void Shape::draw(const shared_ptr<Program> prog) const
@@ -115,4 +146,6 @@ void Shape::draw(const shared_ptr<Program> prog) const
 	GLSL::disableVertexAttribArray(h_pos);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	
+	GLSL::checkError(GET_FILE_LINE);
 }

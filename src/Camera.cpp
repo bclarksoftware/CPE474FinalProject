@@ -19,6 +19,16 @@ Camera::~Camera()
 {
 }
 
+void Camera::setTranslation(Eigen::Vector3f trans)
+{
+    translations = trans;
+}
+
+void Camera::setRotation(Eigen::Vector2f rot)
+{
+    rotations = rot;
+}
+
 void Camera::mouseClicked(double x, double y, bool shift, bool ctrl, bool alt)
 {
 	mousePrev << x, y;

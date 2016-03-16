@@ -30,6 +30,9 @@ public:
 	void mouseMoved(double x, double y);
 	void applyProjectionMatrix(std::shared_ptr<MatrixStack> P) const;
 	void applyViewMatrix(std::shared_ptr<MatrixStack> MV) const;
+    
+    void setTranslation(Eigen::Vector3f trans);
+    void setRotation(Eigen::Vector2f rot);
 	
 private:
 	float aspect;

@@ -86,8 +86,8 @@ private:
     GLuint boneIdBuf2;
     GLuint boneWeightBuf2;
     
-    void recursivePrint(aiNode* toPrint, int level, aiMesh** meshes);
-    void recursiveUpdate(aiNode* toUpdate, float time);
+    void recursivePrint(const aiNode* node, int level, aiMesh** meshes);
+    void recursiveUpdate(const aiNode* toUpdate, float time);
     
     // methods to interpolate transform between animation frames
     aiQuaternion intRot(float time, const aiNodeAnim* nodeAnim);

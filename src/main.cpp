@@ -30,6 +30,8 @@
 #include "skinning_technique.h"
 #include "texture.h"
 
+#include "Cheb.hpp"
+
 using namespace std;
 //using namespace Eigen;
 
@@ -37,21 +39,29 @@ bool keyToggles[256] = {false}; // only for English keyboards!
 
 GLFWwindow *window; // Main application window
 string RESOURCE_DIR = ""; // Where the resources are loaded from
+string OBJ_FILE = "";
+string ATTACHMENT_FILE = "";
+string SKELETON_FILE = "";
 
 shared_ptr<Camera> camera;
 shared_ptr<Program> prog;
 shared_ptr<Program> progSimple;
+shared_ptr<Program> progPhong;
+shared_ptr<Program> progSkinPhong;
 shared_ptr<Program> boneProg;
 shared_ptr<Scene> scene;
 
 SoundPlayer soundPlayer;
 
-float h = 0.0;
-shared_ptr<AnimatedCharacter> chicken;
+//float h = 0.0;
+//shared_ptr<AnimatedCharacter> chicken;
 
 //SkinnedMesh chickenMesh;
 //shared_ptr<SkinningTechnique> m_pEffect;
 //DirectionalLight m_directionalLight;
+
+//===== Cheb =====//
+shared_ptr<Cheb> cheb;
 
 static void error_callback(int error, const char *description)
 {
@@ -150,9 +160,45 @@ static void init()
     
 //    boneProg->addUniform("uTexUnit");
     
+    
+    progPhong = make_shared<Program>();
+    progPhong->setVerbose(true); // Set this to true when debugging.
+    progPhong->setShaderNames(RESOURCE_DIR + "phong_vert1.glsl", RESOURCE_DIR + "phong_frag1.glsl");
+    progPhong->init();
+    progPhong->addUniform("P");
+    progPhong->addUniform("MV");
+    progPhong->addAttribute("vertPos");
+    progPhong->addAttribute("vertNor");
+    progPhong->addAttribute("vertTex");
+    
+    progSkinPhong = make_shared<Program>();
+    progSkinPhong->setVerbose(true); // Set this to true when debugging.
+    progSkinPhong->setShaderNames(RESOURCE_DIR + "phong_skinning_vert.glsl", RESOURCE_DIR + "phong_skinning_frag.glsl");
+    progSkinPhong->init();
+    progSkinPhong->addUniform("P");
+    progSkinPhong->addUniform("MV");
+    progSkinPhong->addUniform("bindPose");
+    progSkinPhong->addUniform("animTrans");
+    progSkinPhong->addAttribute("vertPos");
+    progSkinPhong->addAttribute("vertNor");
+    progSkinPhong->addAttribute("vertTex");
+    
+    progSkinPhong->addAttribute("weights0");
+    progSkinPhong->addAttribute("weights1");
+    progSkinPhong->addAttribute("weights2");
+    progSkinPhong->addAttribute("weights3");
+    progSkinPhong->addAttribute("weights4");
+    progSkinPhong->addAttribute("bones0");
+    progSkinPhong->addAttribute("bones1");
+    progSkinPhong->addAttribute("bones2");
+    progSkinPhong->addAttribute("bones3");
+    progSkinPhong->addAttribute("numBoneInfluences");
+    
     GLSL::checkError(GET_FILE_LINE);
     
 	camera = make_shared<Camera>();
+    camera->setTranslation(Eigen::Vector3f(0.0, 0.0, -2.0));
+    camera->setRotation(Eigen::Vector2f(-10.0, 10.0));
 
 	scene = make_shared<Scene>();
 	scene->load(RESOURCE_DIR);
@@ -161,6 +207,9 @@ static void init()
     
     // Initialize the audio player
     soundPlayer.playBackgroundMusic();
+
+    //===== Init Cheb ======//
+    cheb = make_shared<Cheb>(OBJ_FILE, ATTACHMENT_FILE, SKELETON_FILE, Eigen::Vector3f(0.0f, 0.0f, 0.0f));
     
 //    m_directionalLight.Color = Vector3f(1.0f, 1.0f, 1.0f);
 //    m_directionalLight.AmbientIntensity = 0.55f;
@@ -182,9 +231,9 @@ static void init()
 //    m_pEffect->SetMatSpecularPower(0);
     
     // Initialize the chicken
-    chicken = make_shared<AnimatedCharacter>((RESOURCE_DIR + "Chicken/Chicken_Brown_FBX/chicken_brwn.DAE"), 1, 1.0f, 0);
+//    chicken = make_shared<AnimatedCharacter>((RESOURCE_DIR + "Chicken/bartender.dae"), 1, 1.0f, 0);
     
-//    if (!chickenMesh.LoadMesh((RESOURCE_DIR + "Chicken/Chicken_Brown_FBX/chicken_brwn.DAE")))
+//    if (!chickenMesh.LoadMesh((RESOURCE_DIR + "Chicken/bartender.dae")))
 //    {
 //        printf("Mesh load failed\n");
 //    }
@@ -192,6 +241,9 @@ static void init()
 //    {
 //        cout << "Successfully loaded the chicken mesh" << endl;
 //    }
+    
+    // Initialize time.
+    glfwSetTime(0.0);
 	
 	// If there were any OpenGL errors, this will print something.
 	// You can intersperse this line in your code to find the exact location
@@ -282,16 +334,43 @@ void render()
 	MV->popMatrix();
 	prog->unbind();
     
-    boneProg->bind();
-    glUniformMatrix4fv(boneProg->getUniform("P"), 1, GL_FALSE, P->topMatrix().data());
-    MV->pushMatrix();
-    // Draw something here
-    if(!chicken->isAnimating()) {
-        chicken->startAnimation("walk");
+    // Draw Cheb
+    if (keyToggles[(unsigned)'g'])
+    {
+        progSkinPhong->bind();
+        cheb->init();
+        glUniformMatrix4fv(progSkinPhong->getUniform("P"), 1, GL_FALSE, P->topMatrix().data());
+        
+        cheb->drawGPU(MV, progSkinPhong);
+        
+        progSkinPhong->unbind();
+    }
+    else
+    {
+        progPhong->bind();
+        glUniformMatrix4fv(progPhong->getUniform("P"), 1, GL_FALSE, P->topMatrix().data());
+        
+        MV->scale(Eigen::Vector3f(0.4, 0.4, 0.4));
+        
+        cheb->draw(MV, progPhong);
+        
+        progPhong->unbind();
     }
     
+//    boneProg->bind();
+//    glUniformMatrix4fv(boneProg->getUniform("P"), 1, GL_FALSE, P->topMatrix().data());
+//    MV->pushMatrix();
+    // Draw something here
+//    if(!chicken->isAnimating()) {
+//        chicken->startAnimation("walk");
+//    }
+    
+//    chicken->position = Eigen::Vector3f(0.0, 0.0, 0.0);
+//    chicken->scale = Eigen:: Vector3f(1.0, 1.0, 1.0);
+//    chicken->rotate = 0;
+    
 //    float newTime = glfwGetTime();
-    chicken->drawChar(MV, boneProg, 1.0/60.0);
+//    chicken->drawChar(MV, boneProg, 1.0/60.0);
     
 //    vector<Matrix4f> Transforms;
 //    
@@ -299,8 +378,8 @@ void render()
 //    
 //    chickenMesh.Render();
     
-    MV->popMatrix();
-    boneProg->unbind();
+//    MV->popMatrix();
+//    boneProg->unbind();
     
 //    h += newTime;
 	
@@ -319,6 +398,7 @@ void stepperFunc()
 {
 	while(true) {
 		if(keyToggles[(unsigned)' ']) {
+            scene->addSpheres(cheb->getVertPos());
 			scene->step();
 		}
 		this_thread::sleep_for(chrono::microseconds(1));
@@ -327,11 +407,14 @@ void stepperFunc()
 
 int main(int argc, char **argv)
 {
-	if(argc < 2) {
-		cout << "Please specify the resource directory." << endl;
-		return 0;
-	}
-	RESOURCE_DIR = argv[1] + string("/");
+    if(argc < 5) {
+        cout << "Please specify the resource directory, .obj file, attachment file, and skeleton file respectively." << endl;
+        return 0;
+    }
+    RESOURCE_DIR = argv[1] + string("/");
+    OBJ_FILE = argv[2];
+    ATTACHMENT_FILE = argv[3];
+    SKELETON_FILE = argv[4];
 	
 	// Set error callback.
 	glfwSetErrorCallback(error_callback);
